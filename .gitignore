@@ -1,0 +1,20 @@
+# Node dependencies
+node_modules/
+
+# Python virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# Build outputs
+dist/
+
+# Auto-generated data files
+site/data.js
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
