@@ -41,6 +41,8 @@ def generate_video_js(gcs_uri, output_file="./site/data.js"):
         parts = blob.name.split('/')
         filename = parts[-1]
         tiers = parts[:-1]
+        folder_name = tiers[-1] if tiers else ""
+        display_name = f"{folder_name} - {filename}" if folder_name else filename
         
         # Construct the authenticated storage.cloud.google.com URL
         # We quote the name to handle spaces and special characters in paths
