@@ -31,7 +31,7 @@ def generate_video_js(gcs_uri, output_file="./site/data.js"):
     blobs = bucket.list_blobs(prefix=prefix)
     
     videos = []
-    supported_extensions = ('.avi',)
+    supported_extensions = ('.mp4',)
     
     for blob in blobs:
         if not blob.name.lower().endswith(supported_extensions):
