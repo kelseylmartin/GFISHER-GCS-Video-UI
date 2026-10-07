@@ -40,6 +40,12 @@ def generate_video_js(gcs_uri, output_file="./site/data.js"):
         # Parse the path. Everything before the file name becomes a tier/tag
         parts = blob.name.split('/')
         filename = parts[-1]
+        
+        # Filter: Skip if "sat" IS in the filename 
+        # (Using .lower() catches both "sat", "Sat", "SAT", etc.)
+        if "sat" in filename.lower():
+            continue
+            
         tiers = parts[:-1]
         folder_name = tiers[-1] if tiers else ""
         display_name = f"{folder_name} - {filename}" if folder_name else filename
