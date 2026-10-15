@@ -64,18 +64,15 @@
             </svg>
             <h3 class="text-xl font-bold text-red-800 mb-2">No Video Data Found</h3>
             <p class="text-red-600 mb-4">The `data.js` file could not be loaded or is empty.</p>
-            <p class="text-sm text-red-500">Make sure you have run the Python generator script and uploaded both `index.html` and `data.js` to the same folder.</p>
         </div>
 
         <!-- Video Grid -->
         <div id="videoGrid" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-            <!-- Cards will be injected here via JavaScript -->
+            <!-- Cards injected via JS -->
         </div>
 
-        <!-- Pagination Controls (New) -->
-        <div id="paginationControls" class="hidden flex justify-center items-center gap-2 mt-8 mb-4">
-             <!-- Pagination injected via JS -->
-        </div>
+        <!-- Pagination Controls -->
+        <div id="paginationControls" class="hidden flex justify-center items-center gap-2 mt-8 mb-4"></div>
 
         <!-- Empty Search State -->
         <div id="emptySearchState" class="hidden text-center py-20">
@@ -83,6 +80,64 @@
         </div>
 
     </main>
+
+    <!-- NEW: Hidden SVG Filter for Sharpening/Faux-Upscale -->
+    <svg style="display: none;">
+        <defs>
+            <filter id="sharpen">
+                <feConvolveMatrix order="3" preserveAlpha="true"
+                    kernelMatrix=" 0 -1  0
+                                  -1  5 -1
+                                   0 -1  0"/>
+            </filter>
+        </defs>
+    </svg>
+
+    <!-- NEW: Video Player Modal -->
+    <div id="videoModal" class="hidden fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4">
+        
+        <!-- Modal Header / Tools Panel -->
+        <div class="w-full max-w-5xl bg-white rounded-t-xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-lg">
+            
+            <div class="flex flex-wrap items-center gap-4 text-sm font-medium text-slate-700">
+                <label class="flex items-center gap-2">
+                    Brightness
+                    <input type="range" id="toolBrightness" min="0.5" max="3" step="0.1" value="1" class="w-24">
+                </label>
+                
+                <label class="flex items-center gap-2">
+                    Contrast
+                    <input type="range" id="toolContrast" min="0.5" max="3" step="0.1" value="1" class="w-24">
+                </label>
+                
+                <label class="flex items-center gap-2">
+                    Speed
+                    <select id="toolSpeed" class="border rounded p-1 text-sm bg-slate-50">
+                        <option value="0.25">0.25x</option>
+                        <option value="0.5">0.5x</option>
+                        <option value="1" selected>1.0x</option>
+                        <option value="1.5">1.5x</option>
+                        <option value="2">2.0x</option>
+                    </select>
+                </label>
+
+                <label class="flex items-center gap-2 cursor-pointer ml-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full border border-blue-200">
+                    <input type="checkbox" id="toolSharpen"> Upscale/Sharpen
+                </label>
+            </div>
+
+            <button onclick="closeVideoModal()" class="text-slate-500 hover:text-red-500 font-bold px-3 py-1 bg-slate-100 rounded-lg transition">Close (X)</button>
+        </div>
+
+        <div class="w-full max-w-5xl bg-black text-center text-xs text-slate-400 py-2 border-b border-slate-800">
+            *Scroll mouse wheel over video to zoom. Click and drag to pan around.
+        </div>
+
+        <!-- The Interactive Video Container -->
+        <div class="w-full max-w-5xl aspect-video bg-black relative overflow-hidden cursor-grab rounded-b-xl border border-slate-800" id="vidContainer">
+            <video id="marineVideo" src="" controls class="w-full h-full object-contain origin-top-left transition-transform duration-100 ease-out"></video>
+        </div>
+    </div>
 
     <script>
         const grid = document.getElementById('videoGrid');
@@ -92,7 +147,6 @@
         const emptySearchState = document.getElementById('emptySearchState');
         const paginationControls = document.getElementById('paginationControls');
 
-        // State Management
         let allVideos = [];
         let filteredVideos = [];
         let currentPage = 1;
@@ -100,19 +154,16 @@
 
         function applyFilters() {
             const searchTerm = searchInput.value.toLowerCase();
-            
             filteredVideos = allVideos.filter(video => {
                 const matchesName = video.filename.toLowerCase().includes(searchTerm);
                 return matchesName || video.tiersArray.some(tier => tier.toLowerCase().includes(searchTerm));
             });
-            
-            currentPage = 1; // Reset to page 1 on new filters
+            currentPage = 1; 
             renderVideos();
         }
 
         function renderPagination() {
             const totalPages = Math.ceil(filteredVideos.length / itemsPerPage);
-            
             if (totalPages <= 1) {
                 paginationControls.classList.add('hidden');
                 return;
@@ -121,16 +172,12 @@
             paginationControls.classList.remove('hidden');
             let html = '';
             
-            // Prev button
             const prevDisabled = currentPage === 1;
             html += `<button onclick="goToPage(${currentPage - 1})" ${prevDisabled ? 'disabled' : ''} class="px-3 py-1.5 rounded-md border border-slate-200 font-medium ${prevDisabled ? 'text-slate-400 bg-slate-50 cursor-not-allowed' : 'text-slate-700 bg-white hover:bg-slate-50 transition-colors'}">Prev</button>`;
             
-            // Dynamic page numbers (limits how many show at once)
             let startPage = Math.max(1, currentPage - 2);
             let endPage = Math.min(totalPages, startPage + 4);
-            if (endPage - startPage < 4) {
-                startPage = Math.max(1, endPage - 4);
-            }
+            if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
 
             if (startPage > 1) {
                 html += `<button onclick="goToPage(1)" class="px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-medium transition-colors">1</button>`;
@@ -147,7 +194,6 @@
                 html += `<button onclick="goToPage(${totalPages})" class="px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-medium transition-colors">${totalPages}</button>`;
             }
             
-            // Next button
             const nextDisabled = currentPage === totalPages;
             html += `<button onclick="goToPage(${currentPage + 1})" ${nextDisabled ? 'disabled' : ''} class="px-3 py-1.5 rounded-md border border-slate-200 font-medium ${nextDisabled ? 'text-slate-400 bg-slate-50 cursor-not-allowed' : 'text-slate-700 bg-white hover:bg-slate-50 transition-colors'}">Next</button>`;
             
@@ -159,12 +205,11 @@
             if (page < 1 || page > totalPages) return;
             currentPage = page;
             renderVideos();
-            window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll back up
+            window.scrollTo({ top: 0, behavior: 'smooth' }); 
         };
 
         function renderVideos() {
             grid.innerHTML = ''; 
-            
             if (filteredVideos.length === 0) {
                 grid.classList.add('hidden');
                 paginationControls.classList.add('hidden');
@@ -175,7 +220,6 @@
             emptySearchState.classList.add('hidden');
             grid.classList.remove('hidden');
 
-            // Slice only the current page's videos
             const startIndex = (currentPage - 1) * itemsPerPage;
             const endIndex = Math.min(startIndex + itemsPerPage, filteredVideos.length);
             const pageVideos = filteredVideos.slice(startIndex, endIndex);
@@ -189,40 +233,32 @@
                 const cardHtml = `
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
                         <div class="p-5 flex-grow">
-                            <div class="flex flex-wrap mb-2">
-                                ${tagsHtml}
-                            </div>
-                            <h3 class="font-semibold text-slate-800 text-lg mb-2 line-clamp-2" title="${video.filename.replace(/"/g, '&quot;')}">
-                                ${video.filename}
-                            </h3>
-                            <p class="text-xs text-slate-400 truncate" title="${video.full_path.replace(/"/g, '&quot;')}">
-                                ${video.full_path}
-                            </p>
+                            <div class="flex flex-wrap mb-2">${tagsHtml}</div>
+                            <h3 class="font-semibold text-slate-800 text-lg mb-2 line-clamp-2" title="${video.filename.replace(/"/g, '&quot;')}">${video.filename}</h3>
+                            <p class="text-xs text-slate-400 truncate" title="${video.full_path.replace(/"/g, '&quot;')}">${video.full_path}</p>
                         </div>
                         <div class="px-5 py-4 bg-slate-50 border-t border-slate-100">
-                            <a href="${video.url}" target="_blank" rel="noopener noreferrer" class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                            <!-- MODIFIED: Now triggers the modal instead of opening a new tab -->
+                            <button onclick="openVideoModal('${video.url}')" class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
                                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" fill-rule="evenodd"></path>
                                 </svg>
-                                Play Video
-                            </a>
+                                Play Interactive
+                            </button>
                         </div>
                     </div>
                 `;
                 grid.insertAdjacentHTML('beforeend', cardHtml);
             });
-            
             renderPagination();
         }
 
         window.addEventListener('DOMContentLoaded', () => {
             if (typeof masterVideoData !== 'undefined' && Array.isArray(masterVideoData)) {
                 loadingState.classList.add('hidden');
-                
                 if (masterVideoData.length > 0) {
                     allVideos = masterVideoData;
-                    filteredVideos = [...allVideos]; // Initialize filtered identical to all
-                    
+                    filteredVideos = [...allVideos]; 
                     searchInput.disabled = false;
                     renderVideos();
                 } else {
@@ -234,17 +270,116 @@
                 loadingState.classList.add('hidden');
                 errorState.classList.remove('hidden');
             }
+            initVideoTools(); // Initialize the modal tools
         });
 
         let searchTimeout;
         searchInput.addEventListener('input', () => {
             if (allVideos.length === 0) return;
-            
             clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                applyFilters();
-            }, 250);
+            searchTimeout = setTimeout(() => { applyFilters(); }, 250);
         });
+
+        // ----------------------------------------------------------------
+        // NEW: MODAL AND ENHANCEMENT TOOLS LOGIC
+        // ----------------------------------------------------------------
+
+        const videoModal = document.getElementById('videoModal');
+        const marineVideo = document.getElementById('marineVideo');
+        
+        // Modal Controls
+        window.openVideoModal = function(url) {
+            marineVideo.src = url;
+            videoModal.classList.remove('hidden');
+            marineVideo.play().catch(e => console.log("Autoplay prevented:", e));
+        };
+
+        window.closeVideoModal = function() {
+            videoModal.classList.add('hidden');
+            marineVideo.pause();
+            marineVideo.src = "";
+            resetVideoTools(); // Set zoom and color back to normal
+        };
+
+        // Initialize Tools
+        function initVideoTools() {
+            const container = document.getElementById('vidContainer');
+            const brightInput = document.getElementById('toolBrightness');
+            const contrastInput = document.getElementById('toolContrast');
+            const speedInput = document.getElementById('toolSpeed');
+            const sharpenInput = document.getElementById('toolSharpen');
+
+            function updateFilters() {
+                let filterString = `brightness(${brightInput.value}) contrast(${contrastInput.value})`;
+                if (sharpenInput.checked) filterString += ` url(#sharpen)`;
+                marineVideo.style.filter = filterString;
+            }
+
+            brightInput.addEventListener('input', updateFilters);
+            contrastInput.addEventListener('input', updateFilters);
+            sharpenInput.addEventListener('change', updateFilters);
+
+            speedInput.addEventListener('change', (e) => {
+                marineVideo.playbackRate = parseFloat(e.target.value);
+            });
+
+            // Zoom & Pan Variables
+            let scale = 1, panning = false, pointX = 0, pointY = 0, startX = 0, startY = 0;
+
+            function setTransform() {
+                marineVideo.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+            }
+
+            // Global reset accessible by close window
+            window.resetVideoTools = function() {
+                scale = 1; pointX = 0; pointY = 0; setTransform();
+                brightInput.value = 1; contrastInput.value = 1;
+                speedInput.value = "1"; sharpenInput.checked = false;
+                updateFilters();
+                marineVideo.playbackRate = 1;
+            };
+
+            // Zoom Logic
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const zoomFactor = -e.deltaY * 0.005;
+                const newScale = Math.min(Math.max(1, scale + zoomFactor), 5); // Max 5x zoom
+                
+                const rect = container.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                if (newScale !== scale) {
+                    pointX = mouseX - (mouseX - pointX) * (newScale / scale);
+                    pointY = mouseY - (mouseY - pointY) * (newScale / scale);
+                    scale = newScale;
+                    if (scale === 1) { pointX = 0; pointY = 0; }
+                    setTransform();
+                }
+            });
+
+            // Pan Logic
+            container.addEventListener('mousedown', (e) => {
+                if (scale > 1) {
+                    e.preventDefault();
+                    startX = e.clientX - pointX;
+                    startY = e.clientY - pointY;
+                    panning = true;
+                    container.style.cursor = 'grabbing';
+                }
+            });
+
+            container.addEventListener('mousemove', (e) => {
+                if (!panning) return;
+                pointX = e.clientX - startX;
+                pointY = e.clientY - startY;
+                setTransform();
+            });
+
+            const stopPanning = () => { panning = false; container.style.cursor = 'grab'; };
+            container.addEventListener('mouseup', stopPanning);
+            container.addEventListener('mouseleave', stopPanning);
+        }
     </script>
 </body>
 </html>
