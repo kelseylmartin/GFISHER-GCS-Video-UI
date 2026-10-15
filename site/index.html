@@ -27,8 +27,8 @@
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-sans h-screen flex overflow-hidden transition-colors duration-200">
     
-    <!-- LEFT SIDEBAR (File Explorer) -->
-    <aside class="w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col flex-shrink-0 transition-colors duration-200">
+    <!-- LEFT SIDEBAR (Collapsible File Explorer) -->
+    <aside class="w-72 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col flex-shrink-0 transition-colors duration-200">
         <div class="p-4 border-b border-slate-200 dark:border-slate-700">
             <h2 class="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
                 <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
@@ -36,7 +36,7 @@
             </h2>
         </div>
         <div class="flex-1 overflow-y-auto p-2" id="folderList">
-            <!-- Folders injected via JS -->
+            <!-- Folder tree injected via JS -->
         </div>
     </aside>
 
@@ -45,15 +45,24 @@
         
         <!-- HEADER -->
         <header class="bg-white dark:bg-slate-800 shadow-sm z-10 transition-colors duration-200">
-            <div class="px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Video Library Portal</h1>
-                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Browse and stream videos directly from Cloud Storage</p>
+            <div class="px-6 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                
+                <!-- Title & Icon -->
+                <div class="flex items-center gap-4">
+                    <div class="p-2.5 bg-blue-100 dark:bg-blue-900/50 rounded-xl text-blue-600 dark:text-blue-400 shadow-sm">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Video Library Portal</h1>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Browse and stream videos directly from Cloud Storage</p>
+                    </div>
                 </div>
                 
                 <div class="flex items-center gap-4">
                     <!-- Search Bar -->
-                    <div class="w-full md:w-80 relative">
+                    <div class="w-full lg:w-80 relative">
                         <input 
                             type="text" id="searchInput" disabled placeholder="Search by name or tags..." 
                             class="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white disabled:opacity-50 transition-colors"
@@ -63,9 +72,7 @@
 
                     <!-- Dark Mode Toggle -->
                     <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors" title="Toggle Dark Mode">
-                        <!-- Sun Icon (shows in dark mode) -->
                         <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                        <!-- Moon Icon (shows in light mode) -->
                         <svg class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
                     </button>
                 </div>
@@ -155,12 +162,11 @@
         // --- DARK MODE LOGIC ---
         function toggleDarkMode() {
             document.documentElement.classList.toggle('dark');
-            // Save preference to local storage
             const isDark = document.documentElement.classList.contains('dark');
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
         }
 
-        // --- DIRECTORY TREE LOGIC ---
+        // --- COLLAPSIBLE DIRECTORY TREE LOGIC ---
         function buildFolderExplorer() {
             if (allVideos.length === 0) return;
 
@@ -183,64 +189,119 @@
                 if (v.folderPath) folderPaths.add(v.folderPath);
             });
 
-            // 3. Sort alphabetically and render
-            let sortedFolders = Array.from(folderPaths).sort();
-            
+            // 3. Build a nested tree object
+            const root = { children: {}, path: "" };
+            folderPaths.forEach(path => {
+                const parts = path.split('/');
+                let current = root;
+                let currentPath = "";
+                parts.forEach((part, i) => {
+                    currentPath += (i === 0 ? part : '/' + part);
+                    if (!current.children[part]) {
+                        current.children[part] = { name: part, path: currentPath, children: {} };
+                    }
+                    current = current.children[part];
+                });
+            });
+
+            // 4. Recursive HTML Generation
+            function renderTree(node, depth = 0) {
+                let html = '';
+                const keys = Object.keys(node.children).sort();
+                
+                keys.forEach(key => {
+                    const child = node.children[key];
+                    const hasChildren = Object.keys(child.children).length > 0;
+                    const padding = (depth * 1.25) + 0.75;
+                    // Base64 encoding creates safe IDs avoiding quotes or spaces
+                    const safeId = btoa(child.path).replace(/[^a-zA-Z0-9]/g, ''); 
+                    
+                    html += `<div class="folder-node">`;
+                    
+                    html += `
+                        <button data-path="${child.path}" onclick="toggleFolder(this, '${child.path}', '${safeId}')" 
+                            style="padding-left: ${padding}rem"
+                            class="folder-btn w-full text-left pr-3 py-1.5 rounded-lg mb-1 text-sm transition-colors text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50 flex items-center gap-2 truncate group">
+                            
+                            ${hasChildren 
+                                ? `<svg id="icon-${safeId}" class="w-4 h-4 flex-shrink-0 transition-transform duration-200 -rotate-90 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>` 
+                                : `<svg class="w-4 h-4 flex-shrink-0 opacity-40 text-slate-500" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>`}
+                            
+                            ${child.name}
+                        </button>
+                    `;
+                    
+                    if (hasChildren) {
+                        html += `<div class="folder-children hidden" id="children-${safeId}">`;
+                        html += renderTree(child, depth + 1);
+                        html += `</div>`;
+                    }
+                    
+                    html += `</div>`;
+                });
+                return html;
+            }
+
+            // 5. Render "All Videos" + The Tree
             let html = `
-                <button data-path="" onclick="selectFolder('')" class="folder-btn w-full text-left px-3 py-2 rounded-lg mb-1 text-sm transition-colors bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-semibold">
+                <button data-path="" onclick="selectAllFolders(this)" class="folder-btn w-full text-left px-3 py-2 rounded-lg mb-2 text-sm transition-colors bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-semibold flex items-center gap-2">
+                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
                     All Videos
                 </button>
             `;
-
-            sortedFolders.forEach(path => {
-                const depth = path.split('/').length - 1;
-                const folderName = path.split('/').pop();
-                // Indent sub-folders visually
-                const paddingLeft = (depth * 1.25) + 0.75; 
-                
-                html += `
-                    <button data-path="${path}" onclick="selectFolder('${path}')" 
-                        style="padding-left: ${paddingLeft}rem"
-                        class="folder-btn w-full text-left pr-3 py-1.5 rounded-lg mb-1 text-sm transition-colors text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50 flex items-center gap-2 truncate">
-                        <svg class="w-4 h-4 flex-shrink-0 text-slate-400" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>
-                        ${folderName}
-                    </button>
-                `;
-            });
+            html += renderTree(root, 0);
 
             folderListContainer.innerHTML = html;
         }
 
-        window.selectFolder = function(path) {
+        window.toggleFolder = function(btnElement, path, safeId) {
             selectedFolder = path;
             
-            // Update Sidebar UI Highlight
+            // Highlight active folder
             document.querySelectorAll('.folder-btn').forEach(btn => {
-                btn.className = btn.className.replace(/bg-blue-50 dark:bg-blue-900\/30 text-blue-700 dark:text-blue-400 font-semibold/g, 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50');
+                btn.classList.remove('bg-blue-50', 'dark:bg-blue-900/30', 'text-blue-700', 'dark:text-blue-400', 'font-semibold');
+                btn.classList.add('text-slate-600', 'dark:text-slate-400');
             });
-            
-            const activeBtn = document.querySelector(`.folder-btn[data-path="${path}"]`);
-            if (activeBtn) {
-                activeBtn.className = activeBtn.className.replace(/text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700\/50/g, '');
-                activeBtn.className += ' bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-semibold';
+            btnElement.classList.remove('text-slate-600', 'dark:text-slate-400');
+            btnElement.classList.add('bg-blue-50', 'dark:bg-blue-900/30', 'text-blue-700', 'dark:text-blue-400', 'font-semibold');
+
+            // Expand or Collapse Sub-directories if they exist
+            if (safeId) {
+                const childrenContainer = document.getElementById(`children-${safeId}`);
+                const icon = document.getElementById(`icon-${safeId}`);
+                if (childrenContainer) {
+                    childrenContainer.classList.toggle('hidden');
+                    if (icon) {
+                        icon.classList.toggle('-rotate-90');
+                    }
+                }
             }
 
             applyFilters();
-        }
+        };
+
+        window.selectAllFolders = function(btnElement) {
+            selectedFolder = "";
+            document.querySelectorAll('.folder-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-50', 'dark:bg-blue-900/30', 'text-blue-700', 'dark:text-blue-400', 'font-semibold');
+                btn.classList.add('text-slate-600', 'dark:text-slate-400');
+            });
+            btnElement.classList.remove('text-slate-600', 'dark:text-slate-400');
+            btnElement.classList.add('bg-blue-50', 'dark:bg-blue-900/30', 'text-blue-700', 'dark:text-blue-400', 'font-semibold');
+            applyFilters();
+        };
 
         // --- FILTER & RENDER LOGIC ---
         function applyFilters() {
             const searchTerm = searchInput.value.toLowerCase();
             
             filteredVideos = allVideos.filter(video => {
-                // 1. Check Folder
                 let matchesFolder = true;
                 if (selectedFolder !== "") {
                     // Match exact folder or a subfolder of it
                     matchesFolder = video.folderPath === selectedFolder || video.folderPath.startsWith(selectedFolder + '/');
                 }
                 
-                // 2. Check Search Term
                 let matchesSearch = true;
                 if (searchTerm) {
                     const matchesName = video.filename.toLowerCase().includes(searchTerm);
@@ -310,7 +371,6 @@
             const pageVideos = filteredVideos.slice(startIndex, endIndex);
 
             pageVideos.forEach(video => {
-                // Show the relative folder path nicely on the card instead of all tags
                 const displayPath = video.folderPath ? video.folderPath.replace(/\//g, " <span class='text-slate-300 dark:text-slate-600'>/</span> ") : "Root Directory";
 
                 const cardHtml = `
@@ -336,7 +396,6 @@
 
         // --- INIT ---
         window.addEventListener('DOMContentLoaded', () => {
-            // Check for saved dark mode preference
             if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.classList.add('dark');
             }
