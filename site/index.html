@@ -179,17 +179,20 @@
             ` + renderTreeNode(tree, 0);
         }
 
-        function renderTreeNode(node, depth) {
-            if (depth > 0 && Object.keys(node.children).length === 0) return '';
+function renderTreeNode(node, depth) {
+            // REMOVED the line that was hiding empty folders here
+            
             let html = '';
             const padding = (depth * 1) + 0.5;
             const safeId = btoa(encodeURIComponent(node.path)).replace(/[^a-zA-Z0-9]/g, '');
 
             if (depth > 0) {
                 const hasChildren = Object.keys(node.children).length > 0;
+                
+                // Only show the chevron arrow if there are sub-folders inside this folder
                 const chevron = hasChildren ? `
                     <svg id="icon-${safeId}" class="w-4 h-4 transition-transform ${node.isOpen ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                ` : `<span class="w-4 h-4"></span>`;
+                ` : `<span class="w-4 h-4 inline-block"></span>`;
 
                 html += `
                     <div class="flex items-center hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg mb-1 pr-2 cursor-pointer transition-colors" style="padding-left: ${padding}rem">
