@@ -9,34 +9,30 @@ let filteredVideos = [];
 let currentPage = 1;
 const itemsPerPage = 12;
 let selectedFolder = ""; 
-let selectedVideoUrls = new Set(); 
-let globalCommonPrefixLen = 0; // Tracks the root path
+// Use an Array to guarantee selection order and manage numbers
+let selectedVideoUrls = []; 
+let globalCommonPrefixLen = 0; 
 
 function toggleDarkMode() {
     document.documentElement.classList.toggle('dark');
     localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
 }
 
-// --- NEW SEARCH LOGIC ---
+// --- SEARCH & FILTER LOGIC ---
 function applyFilters() {
     const searchTerm = searchInput.value.toLowerCase();
     
-    // 1. Search Filter: Only check the top-level directory directly below "2025" (or root)
     let searchedVideos = allVideos.filter(video => {
         if (!searchTerm) return true;
-        // relPathArray[0] is the folder name directly below the root prefix
         const topFolder = video.relPathArray[0] ? video.relPathArray[0].toLowerCase() : "";
         return topFolder.includes(searchTerm);
     });
 
-    // 2. Rebuild Directory Tree: Show only folders that matched the search
-    // We pass true/false for isSearching to auto-expand folders if the user is typing
     buildFolderTree(searchedVideos, searchTerm !== "");
 
-    // 3. Selection Filter: Check if the currently selected folder got hidden by the search
     const folderStillValid = searchedVideos.some(v => v.folderPath.startsWith(selectedFolder));
     if (!folderStillValid && selectedFolder !== "") {
-        selectedFolder = ""; // Reset to "All Videos" if their folder vanished
+        selectedFolder = ""; 
     }
 
     filteredVideos = searchedVideos.filter(video => {
@@ -48,7 +44,7 @@ function applyFilters() {
     highlightSelectedFolder();
 }
 
-// --- UPDATED TREE LOGIC ---
+// --- TREE LOGIC ---
 function buildFolderTree(videosToRender, isSearching) {
     if (videosToRender.length === 0) {
         folderListContainer.innerHTML = `<p class="p-4 text-sm text-slate-500 dark:text-slate-400">No directories match your search.</p>`;
@@ -64,7 +60,6 @@ function buildFolderTree(videosToRender, isSearching) {
             currentPath.push(part);
             let pathStr = currentPath.join('/');
             if (!currentNode.children[part]) {
-                // If the user is actively searching, auto-expand the tree to show the results
                 currentNode.children[part] = { name: part, path: pathStr, children: {}, isOpen: isSearching ? true : false };
             }
             currentNode = currentNode.children[part];
@@ -133,13 +128,11 @@ window.selectFolder = function(path) {
 };
 
 function highlightSelectedFolder() {
-    // Reset all buttons to default grey
     document.querySelectorAll('.folder-btn').forEach(btn => {
         btn.classList.remove('bg-blue-50', 'dark:bg-blue-900/30', 'text-blue-700', 'dark:text-blue-400', 'font-semibold');
         if(!btn.classList.contains('text-slate-600')) btn.classList.add('text-slate-600', 'dark:text-slate-400');
     });
     
-    // Highlight the newly selected folder in blue
     const activeBtn = document.querySelector(`.folder-btn[data-path="${selectedFolder.replace(/"/g, '&quot;')}"]`);
     if (activeBtn) {
         activeBtn.classList.remove('text-slate-600', 'dark:text-slate-400');
@@ -153,7 +146,6 @@ window.addEventListener('DOMContentLoaded', () => {
         document.documentElement.classList.add('dark');
     }
     
-    // Change placeholder text dynamically to reflect new behavior
     searchInput.placeholder = "Search for a directory (e.g. NCD)...";
 
     if (typeof masterVideoData !== 'undefined' && Array.isArray(masterVideoData)) {
@@ -161,7 +153,6 @@ window.addEventListener('DOMContentLoaded', () => {
         if (masterVideoData.length > 0) {
             allVideos = masterVideoData;
             
-            // Calculate the common root prefix exactly ONCE to keep tree structure consistent
             let minLen = Math.min(...allVideos.map(v => v.tiersArray.length));
             globalCommonPrefixLen = 0;
             for (let i = 0; i < minLen; i++) {
@@ -177,7 +168,7 @@ window.addEventListener('DOMContentLoaded', () => {
             filteredVideos = [...allVideos]; 
             searchInput.disabled = false;
             
-            applyFilters(); // This triggers the first tree build and video render
+            applyFilters(); 
         } else { 
             document.getElementById('errorState').classList.remove('hidden'); 
         }
@@ -185,39 +176,46 @@ window.addEventListener('DOMContentLoaded', () => {
     initVideoTools(); 
 });
 
-// Debounce the search input so it doesn't try to filter on every single keystroke instantly
 let searchTimeout;
 searchInput.addEventListener('input', () => {
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(applyFilters, 200);
 });
 
-// --- MULTI-SELECT & CARDS ---
-window.toggleVideoSelection = function(cb) {
-    if (cb.checked) selectedVideoUrls.add(cb.value);
-    else selectedVideoUrls.delete(cb.value);
+// --- NEW SEQUENTIAL BADGE LOGIC ---
+window.toggleVideoSelection = function(videoUrl) {
+    const idx = selectedVideoUrls.indexOf(videoUrl);
+    if (idx > -1) {
+        // Deselecting: remove and update numbers for remaining selections
+        selectedVideoUrls.splice(idx, 1);
+    } else {
+        // Selecting: add URL to the end of the selection order
+        selectedVideoUrls.push(videoUrl);
+    }
     updateSelectionBar();
+    renderVideos(); // Refresh visual badges and numbers
 };
 
 window.clearSelection = function() {
-    selectedVideoUrls.clear();
-    document.querySelectorAll('.video-checkbox').forEach(cb => cb.checked = false);
+    selectedVideoUrls = [];
     updateSelectionBar();
+    renderVideos();
 };
 
 function updateSelectionBar() {
-    if (selectedVideoUrls.size > 0) {
+    if (selectedVideoUrls.length > 0) {
         selectionBar.classList.remove('hidden');
-        selectionCount.textContent = `${selectedVideoUrls.size} Selected`;
+        selectionCount.textContent = `${selectedVideoUrls.length} Selected`;
     } else {
         selectionBar.classList.add('hidden');
     }
 }
 
 window.playSelectedVideos = function() {
-    if (selectedVideoUrls.size > 0) openVideoModal(Array.from(selectedVideoUrls));
+    if (selectedVideoUrls.length > 0) openVideoModal(selectedVideoUrls);
 };
 
+// --- RENDER GRID WITH DYNAMIC NUMBERED BADGES ---
 function renderVideos() {
     grid.innerHTML = ''; 
     if (filteredVideos.length === 0) {
@@ -231,14 +229,214 @@ function renderVideos() {
     const pageVideos = filteredVideos.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     pageVideos.forEach(video => {
-        const isChecked = selectedVideoUrls.has(video.url) ? 'checked' : '';
+        // Determine selection index (click sequence order)
+        const selectIndex = selectedVideoUrls.indexOf(video.url);
+        const isSelected = selectIndex > -1;
         const displayPath = video.folderPath ? video.folderPath.replace(/\//g, " <span class='text-slate-300 dark:text-slate-600'>/</span> ") : "Root Directory";
+
+        // Style change: Selection badge is always visible. Filled blue with a sequence number if clicked, empty circle if not.
+        const badgeHtml = isSelected 
+            ? `<div onclick="toggleVideoSelection('${video.url.replace(/'/g, "\\'")}')" class="absolute top-3 right-3 z-10 w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center font-extrabold text-sm shadow-md cursor-pointer select-none transition-transform active:scale-95">${selectIndex + 1}</div>`
+            : `<div onclick="toggleVideoSelection('${video.url.replace(/'/g, "\\'")}')" class="absolute top-3 right-3 z-10 w-7 h-7 border-2 border-slate-300 dark:border-slate-600 hover:border-blue-500 bg-white/70 dark:bg-slate-800/70 hover:bg-white dark:hover:bg-slate-800 rounded-full flex items-center justify-center cursor-pointer transition-all active:scale-95"></div>`;
 
         const cardHtml = `
             <div class="relative bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-md transition-shadow flex flex-col group">
-                <div class="absolute top-3 right-3 z-10 bg-white/80 dark:bg-slate-800/80 rounded-md p-1 opacity-0 group-hover:opacity-100 transition-opacity ${isChecked ? 'opacity-100' : ''}">
-                    <input type="checkbox" value="${video.url}" onchange="toggleVideoSelection(this)" ${isChecked} class="video-checkbox w-5 h-5 cursor-pointer accent-blue-600">
-                </div>
+                ${badgeHtml}
                 <div class="p-5 flex-grow">
                     <div class="text-xs font-mono text-slate-500 dark:text-slate-400 mb-2 truncate">${displayPath}</div>
-                    <h3 class="font-semibold text-slate-800 dark:text-white text-lg
+                    <h3 class="font-semibold text-slate-800 dark:text-white text-lg mb-2 line-clamp-2">${video.filename}</h3>
+                </div>
+                <div class="px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-700">
+                    <button onclick="openVideoModal(['${video.url}'])" class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" fill-rule="evenodd"></path></svg>
+                        Play Solo
+                    </button>
+                </div>
+            </div>
+        `;
+        grid.insertAdjacentHTML('beforeend', cardHtml);
+    });
+    renderPagination();
+}
+
+function renderPagination() {
+    const totalPages = Math.ceil(filteredVideos.length / itemsPerPage);
+    const pc = document.getElementById('paginationControls');
+    if (totalPages <= 1) { pc.classList.add('hidden'); return; }
+    pc.classList.remove('hidden');
+    let html = `<button onclick="goToPage(${currentPage - 1})" ${currentPage===1?'disabled':''} class="px-3 py-1.5 rounded-md border font-medium bg-white dark:bg-slate-800 dark:border-slate-700">Prev</button>`;
+    for(let i=Math.max(1, currentPage-2); i<=Math.min(totalPages, currentPage+2); i++) {
+        html += `<button onclick="goToPage(${i})" class="px-3 py-1.5 rounded-md border font-medium ${i===currentPage ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 dark:border-slate-700'}">${i}</button>`;
+    }
+    html += `<button onclick="goToPage(${currentPage + 1})" ${currentPage===totalPages?'disabled':''} class="px-3 py-1.5 rounded-md border font-medium bg-white dark:bg-slate-800 dark:border-slate-700">Next</button>`;
+    pc.innerHTML = html;
+}
+
+window.goToPage = function(page) {
+    currentPage = page; renderVideos();
+    document.getElementById('mainScrollArea').scrollTo({ top: 0, behavior: 'smooth' }); 
+};
+
+// --- MODAL & TOOLS ---
+const videoModal = document.getElementById('videoModal');
+const multiVideoGrid = document.getElementById('multiVideoGrid');
+
+window.openVideoModal = function(urls) {
+    multiVideoGrid.innerHTML = ''; 
+    
+    let cols = 'grid-cols-1';
+    let rows = 'grid-rows-1';
+    
+    if (urls.length === 2) {
+        cols = 'grid-cols-2';
+        rows = 'grid-rows-1';
+    } else if (urls.length === 3 || urls.length === 4) {
+        cols = 'grid-cols-2';
+        rows = 'grid-rows-2'; 
+    } else if (urls.length > 4 && urls.length <= 6) {
+        cols = 'grid-cols-3';
+        rows = 'grid-rows-2';
+    } else if (urls.length > 6) {
+        cols = 'grid-cols-3';
+        rows = 'grid-rows-3';
+    }
+
+    multiVideoGrid.className = `w-full h-full origin-top-left transition-transform duration-100 ease-out grid ${cols} ${rows} gap-1 p-1`;
+
+    urls.forEach(url => {
+        const vid = document.createElement('video');
+        vid.src = url;
+        vid.controls = true;
+        vid.muted = true; 
+        vid.className = 'w-full h-full object-contain bg-black marine-video border border-slate-800 rounded-lg';
+        multiVideoGrid.appendChild(vid);
+    });
+
+    videoModal.classList.remove('hidden');
+    
+    let syncLock = false;
+    const syncCheckbox = document.getElementById('toolSync');
+    const allVids = document.querySelectorAll('.marine-video');
+    
+    allVids.forEach(vid => {
+        vid.addEventListener('play', (e) => {
+            if(!syncCheckbox.checked || syncLock) return;
+            syncLock = true;
+            allVids.forEach(v => { if(v !== e.target) v.play(); });
+            setTimeout(() => syncLock = false, 50);
+            globalPlaying = true;
+        });
+        
+        vid.addEventListener('pause', (e) => {
+            if(!syncCheckbox.checked || syncLock) return;
+            syncLock = true;
+            allVids.forEach(v => { if(v !== e.target) v.pause(); });
+            setTimeout(() => syncLock = false, 50);
+            globalPlaying = false;
+        });
+        
+        vid.addEventListener('seeked', (e) => {
+            if(!syncCheckbox.checked || syncLock) return;
+            syncLock = true;
+            allVids.forEach(v => { if(v !== e.target) v.currentTime = e.target.currentTime; });
+            setTimeout(() => syncLock = false, 50);
+        });
+    });
+
+    allVids.forEach(vid => {
+        vid.play().catch(e => console.log("Autoplay prevented:", e));
+    });
+};
+
+window.closeVideoModal = function() {
+    videoModal.classList.add('hidden');
+    multiVideoGrid.innerHTML = ''; 
+    resetVideoTools(); 
+};
+
+let globalPlaying = true;
+window.globalPlayPause = function() {
+    globalPlaying = !globalPlaying;
+    document.querySelectorAll('.marine-video').forEach(vid => {
+        if (globalPlaying) vid.play();
+        else vid.pause();
+    });
+};
+
+function initVideoTools() {
+    const container = document.getElementById('vidContainer');
+    const brightInput = document.getElementById('toolBrightness');
+    const contrastInput = document.getElementById('toolContrast');
+    const speedInput = document.getElementById('toolSpeed');
+    const sharpenInput = document.getElementById('toolSharpen');
+
+    function updateFilters() {
+        let filterString = `brightness(${brightInput.value}) contrast(${contrastInput.value})`;
+        if (sharpenInput.checked) filterString += ` url(#sharpen)`;
+        document.querySelectorAll('.marine-video').forEach(vid => {
+            vid.style.filter = filterString;
+        });
+    }
+
+    brightInput.addEventListener('input', updateFilters);
+    contrastInput.addEventListener('input', updateFilters);
+    sharpenInput.addEventListener('change', updateFilters);
+
+    speedInput.addEventListener('change', (e) => {
+        document.querySelectorAll('.marine-video').forEach(vid => {
+            vid.playbackRate = parseFloat(e.target.value);
+        });
+    });
+
+    let scale = 1, panning = false, pointX = 0, pointY = 0, startX = 0, startY = 0;
+
+    function setTransform() {
+        multiVideoGrid.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+    }
+
+    window.resetVideoTools = function() {
+        scale = 1; pointX = 0; pointY = 0; setTransform();
+        brightInput.value = 1; contrastInput.value = 1;
+        speedInput.value = "1"; sharpenInput.checked = false;
+        document.getElementById('toolSync').checked = true;
+        globalPlaying = true;
+    };
+
+    container.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoomFactor = -e.deltaY * 0.005;
+        const newScale = Math.min(Math.max(1, scale + zoomFactor), 5); 
+        const rect = container.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        if (newScale !== scale) {
+            pointX = mouseX - (mouseX - pointX) * (newScale / scale);
+            pointY = mouseY - (mouseY - pointY) * (newScale / scale);
+            scale = newScale;
+            if (scale === 1) { pointX = 0; pointY = 0; }
+            setTransform();
+        }
+    });
+
+    container.addEventListener('mousedown', (e) => {
+        if (scale > 1) {
+            e.preventDefault();
+            startX = e.clientX - pointX;
+            startY = e.clientY - pointY;
+            panning = true;
+            container.style.cursor = 'grabbing';
+        }
+    });
+
+    container.addEventListener('mousemove', (e) => {
+        if (!panning) return;
+        pointX = e.clientX - startX;
+        pointY = e.clientY - startY;
+        setTransform();
+    });
+
+    const stopPanning = () => { panning = false; container.style.cursor = 'grab'; };
+    container.addEventListener('mouseup', stopPanning);
+    container.addEventListener('mouseleave', stopPanning);
+}
