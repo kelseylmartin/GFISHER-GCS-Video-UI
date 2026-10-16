@@ -15,32 +15,6 @@
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .dark ::-webkit-scrollbar-thumb { background: #47This is the perfect final touch. 
-
-I have added a **"Sync Playback & Time"** toggle directly into the video player's tool bar. When this is checked (which it is by default), clicking play, clicking pause, or scrubbing to a specific timestamp on *any* one of the videos will automatically force all the other videos in the grid to do the exact same thing instantly. 
-
-I also added a stylized tip to the main header letting users know about the multi-select feature.
-
-You can copy and paste this complete, final code to replace your `index.html`.
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Library Portal</title>
-    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: { extend: {} }
-        }
-    </script>
-    <style>
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .dark ::-webkit-scrollbar-thumb { background: #475569; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         .marine-video { transition: filter 0.1s; }
@@ -52,4 +26,71 @@ You can copy and paste this complete, final code to replace your `index.html`.
     <aside class="w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col flex-shrink-0 transition-colors duration-200">
         <div class="p-4 border-b border-slate-200 dark:border-slate-700">
             <h2 class="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
-                <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2
+                <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                Directories
+            </h2>
+        </div>
+        <div class="flex-1 overflow-y-auto p-2" id="folderList"></div>
+    </aside>
+
+    <!-- MAIN CONTENT AREA -->
+    <div class="flex-1 flex flex-col min-w-0 relative">
+        <header class="bg-white dark:bg-slate-800 shadow-sm z-10 transition-colors duration-200">
+            <div class="px-6 py-4 flex flex-col md:flex-row md:items-start justify-between gap-4">
+                <div class="flex items-start gap-3">
+                    <svg class="w-8 h-8 text-blue-600 dark:text-blue-400 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Video Library Portal</h1>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Browse and stream videos directly from Cloud Storage.</p>
+                        <!-- Multi-select Tip -->
+                        <p class="text-sm font-semibold text-blue-600 dark:text-blue-400 mt-1.5 flex items-center gap-1.5">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.34.208-.646.477-.859a4 4 0 10-4.954 0c.27.213.462.519.476.859h4.002z"></path></svg>
+                            Tip: Use the checkboxes on the video cards to select and play multiple videos at once.
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4 mt-2 md:mt-0">
+                    <div class="w-full md:w-80 relative">
+                        <input type="text" id="searchInput" disabled placeholder="Search by name or tags..." class="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white disabled:opacity-50 transition-colors">
+                        <svg class="w-5 h-5 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+                    <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors" title="Toggle Dark Mode">
+                        <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                        <svg class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-6" id="mainScrollArea">
+            <div id="loadingState" class="flex flex-col items-center justify-center py-20">
+                <svg class="animate-spin h-10 w-10 text-blue-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <p class="text-slate-500 dark:text-slate-400">Loading video data...</p>
+            </div>
+            <div id="errorState" class="hidden text-center py-16 max-w-2xl mx-auto bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-800 p-8 shadow-sm">
+                <h3 class="text-xl font-bold text-red-800 dark:text-red-400 mb-2">No Video Data Found</h3>
+                <p class="text-red-600 dark:text-red-300">The `data.js` file could not be loaded or is empty.</p>
+            </div>
+            <div id="videoGrid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8"></div>
+            <div id="paginationControls" class="hidden flex justify-center items-center gap-2 mt-8 mb-4"></div>
+            <div id="emptySearchState" class="hidden text-center py-20">
+                <p class="text-slate-500 dark:text-slate-400 text-lg">No videos match your selection.</p>
+            </div>
+        </main>
+
+        <div id="selectionBar" class="hidden absolute bottom-8 left-1/2 -translate-x-1/2 bg-blue-600 dark:bg-blue-700 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-6 z-40 transition-all">
+            <span id="selectionCount" class="font-bold text-lg">0 Selected</span>
+            <button onclick="playSelectedVideos()" class="bg-white text-blue-600 px-5 py-2 rounded-full font-bold hover:bg-slate-100 shadow-sm transition-colors">Play Selected</button>
+            <button onclick="clearSelection()" class="text-blue-200 hover:text-white underline text-sm transition-colors">Clear</button>
+        </div>
+    </div>
+
+    <!-- SVG Filter for Sharpening -->
+    <svg style="display: none;"><defs><filter id="sharpen"><feConvolveMatrix order="3" preserveAlpha="true" kernelMatrix=" 0 -1 0  -1 5 -1  0 -1 0"/></filter></defs></svg>
+
+    <!-- VIDEO PLAYER MODAL -->
+    <div id="videoModal" class="hidden fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4">
+        <div class="w-full max-w-7xl bg-white dark:bg-slate-800 rounded-t-xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-lg transition-colors">
+            
+            <div class="flex flex-wrap items-center gap-4 text-sm font-medium text-slate-700 dark:text-slate-300">
+                <label class="flex items-center gap-2">Brightness <input type="range" id="toolBrightness" min="0.5" max="3" step
