@@ -15,4 +15,4 @@ npm run build
 
 source ./local_env/bin/deactivate
 gcloud auth application-default login
-gcloud storage cp ./dist/index.html ./site/data.js ./app.js "gs://nmfs-dev-uc1-sefsc/GFISHER/video_browser/"
+gcloud storage cp ./dist/index.html ./site/data.js "gs://nmfs-dev-uc1-sefsc/GFISHER/video_browser/"
