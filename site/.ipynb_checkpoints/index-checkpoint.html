@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Library Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
+    
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900">Video Library Portal</h1>
+                    <p class="text-sm text-slate-500 mt-1">Browse and stream videos directly from Cloud Storage</p>
+                </div>
+                <div class="w-full md:w-96 relative">
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        disabled
+                        placeholder="Search by name or tags..." 
+                        class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100 disabled:cursor-not-allowed transition-colors"
+                    >
+                    <svg class="w-5 h-5 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Loading State -->
+        <div id="loadingState" class="flex flex-col items-center justify-center py-20">
+            <svg class="animate-spin h-10 w-10 text-blue-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="text-slate-500 font-medium">Loading video data...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="hidden text-center py-16 max-w-2xl mx-auto bg-red-50 rounded-xl border border-red-100 p-8 shadow-sm">
+            <svg class="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            <h3 class="text-xl font-bold text-red-800 mb-2">No Video Data Found</h3>
+            <p class="text-red-600 mb-4">The `data.js` file could not be loaded or is empty.</p>
+            <p class="text-sm text-red-500">Make sure you have run the Python generator script and uploaded both `index.html` and `data.js` to the same folder.</p>
+        </div>
+
+        <!-- Video Grid -->
+        <div id="videoGrid" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+            <!-- Cards will be injected here via JavaScript -->
+        </div>
+
+        <!-- Pagination Controls (New) -->
+        <div id="paginationControls" class="hidden flex justify-center items-center gap-2 mt-8 mb-4">
+             <!-- Pagination injected via JS -->
+        </div>
+
+        <!-- Empty Search State -->
+        <div id="emptySearchState" class="hidden text-center py-20">
+            <p class="text-slate-500 text-lg">No videos match your search.</p>
+        </div>
+
+    </main>
+
+    <script>
+        const grid = document.getElementById('videoGrid');
+        const searchInput = document.getElementById('searchInput');
+        const loadingState = document.getElementById('loadingState');
+        const errorState = document.getElementById('errorState');
+        const emptySearchState = document.getElementById('emptySearchState');
+        const paginationControls = document.getElementById('paginationControls');
+
+        // State Management
+        let allVideos = [];
+        let filteredVideos = [];
+        let currentPage = 1;
+        const itemsPerPage = 12;
+
+        function applyFilters() {
+            const searchTerm = searchInput.value.toLowerCase();
+            
+            filteredVideos = allVideos.filter(video => {
+                const matchesName = video.filename.toLowerCase().includes(searchTerm);
+                return matchesName || video.tiersArray.some(tier => tier.toLowerCase().includes(searchTerm));
+            });
+            
+            currentPage = 1; // Reset to page 1 on new filters
+            renderVideos();
+        }
+
+        function renderPagination() {
+            const totalPages = Math.ceil(filteredVideos.length / itemsPerPage);
+            
+            if (totalPages <= 1) {
+                paginationControls.classList.add('hidden');
+                return;
+            }
+            
+            paginationControls.classList.remove('hidden');
+            let html = '';
+            
+            // Prev button
+            const prevDisabled = currentPage === 1;
+            html += `<button onclick="goToPage(${currentPage - 1})" ${prevDisabled ? 'disabled' : ''} class="px-3 py-1.5 rounded-md border border-slate-200 font-medium ${prevDisabled ? 'text-slate-400 bg-slate-50 cursor-not-allowed' : 'text-slate-700 bg-white hover:bg-slate-50 transition-colors'}">Prev</button>`;
+            
+            // Dynamic page numbers (limits how many show at once)
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, startPage + 4);
+            if (endPage - startPage < 4) {
+                startPage = Math.max(1, endPage - 4);
+            }
+
+            if (startPage > 1) {
+                html += `<button onclick="goToPage(1)" class="px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-medium transition-colors">1</button>`;
+                if (startPage > 2) html += `<span class="px-2 text-slate-400">...</span>`;
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                const isActive = i === currentPage;
+                html += `<button onclick="goToPage(${i})" class="px-3 py-1.5 rounded-md border font-medium transition-colors ${isActive ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}">${i}</button>`;
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) html += `<span class="px-2 text-slate-400">...</span>`;
+                html += `<button onclick="goToPage(${totalPages})" class="px-3 py-1.5 rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-medium transition-colors">${totalPages}</button>`;
+            }
+            
+            // Next button
+            const nextDisabled = currentPage === totalPages;
+            html += `<button onclick="goToPage(${currentPage + 1})" ${nextDisabled ? 'disabled' : ''} class="px-3 py-1.5 rounded-md border border-slate-200 font-medium ${nextDisabled ? 'text-slate-400 bg-slate-50 cursor-not-allowed' : 'text-slate-700 bg-white hover:bg-slate-50 transition-colors'}">Next</button>`;
+            
+            paginationControls.innerHTML = html;
+        }
+
+        window.goToPage = function(page) {
+            const totalPages = Math.ceil(filteredVideos.length / itemsPerPage);
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            renderVideos();
+            window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll back up
+        };
+
+        function renderVideos() {
+            grid.innerHTML = ''; 
+            
+            if (filteredVideos.length === 0) {
+                grid.classList.add('hidden');
+                paginationControls.classList.add('hidden');
+                emptySearchState.classList.remove('hidden');
+                return;
+            }
+
+            emptySearchState.classList.add('hidden');
+            grid.classList.remove('hidden');
+
+            // Slice only the current page's videos
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, filteredVideos.length);
+            const pageVideos = filteredVideos.slice(startIndex, endIndex);
+
+            pageVideos.forEach(video => {
+                const tagsHtml = video.tiersArray.map(tier => {
+                    const safeTier = tier.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    return `<span class="inline-block bg-blue-50 text-blue-700 text-xs px-2.5 py-1 rounded-full font-medium mb-2 mr-2 border border-blue-100">${safeTier}</span>`
+                }).join('');
+
+                const cardHtml = `
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+                        <div class="p-5 flex-grow">
+                            <div class="flex flex-wrap mb-2">
+                                ${tagsHtml}
+                            </div>
+                            <h3 class="font-semibold text-slate-800 text-lg mb-2 line-clamp-2" title="${video.filename.replace(/"/g, '&quot;')}">
+                                ${video.filename}
+                            </h3>
+                            <p class="text-xs text-slate-400 truncate" title="${video.full_path.replace(/"/g, '&quot;')}">
+                                ${video.full_path}
+                            </p>
+                        </div>
+                        <div class="px-5 py-4 bg-slate-50 border-t border-slate-100">
+                            <a href="${video.url}" target="_blank" rel="noopener noreferrer" class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" fill-rule="evenodd"></path>
+                                </svg>
+                                Play Video
+                            </a>
+                        </div>
+                    </div>
+                `;
+                grid.insertAdjacentHTML('beforeend', cardHtml);
+            });
+            
+            renderPagination();
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (typeof masterVideoData !== 'undefined' && Array.isArray(masterVideoData)) {
+                loadingState.classList.add('hidden');
+                
+                if (masterVideoData.length > 0) {
+                    allVideos = masterVideoData;
+                    filteredVideos = [...allVideos]; // Initialize filtered identical to all
+                    
+                    searchInput.disabled = false;
+                    renderVideos();
+                } else {
+                    errorState.querySelector('h3').textContent = "Bucket is Empty";
+                    errorState.querySelector('p').textContent = "No supported videos were found for the given prefix.";
+                    errorState.classList.remove('hidden');
+                }
+            } else {
+                loadingState.classList.add('hidden');
+                errorState.classList.remove('hidden');
+            }
+        });
+
+        let searchTimeout;
+        searchInput.addEventListener('input', () => {
+            if (allVideos.length === 0) return;
+            
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                applyFilters();
+            }, 250);
+        });
+    </script>
+</body>
+</html>

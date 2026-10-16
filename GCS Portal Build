@@ -1,0 +1,18 @@
+#cd ~
+#git clone https://github.com/kelseylmartin/GFISHER-GCS-Video-UI.git
+cd /home/user/GFISHER-GCS-Video-UI
+git pull
+
+source ./local_env/bin/activate
+
+# gcloud iam service-accounts keys create ~/sa-key.json --iam-account=wsent-sa1@ggn-nmfs-wsent-prod-1.iam.gserviceaccount.com
+gcloud auth application-default revoke
+
+pip install -r requirements.txt
+npm install
+python generate_list.py gs://nmfs-dev-uc1-sefsc/GFISHER/Video_data/2025/
+npm run build
+
+source ./local_env/bin/deactivate
+gcloud auth application-default login
+gcloud storage cp ./dist/index.html ./site/data.js ./app.js "gs://nmfs-dev-uc1-sefsc/GFISHER/video_browser/"
