@@ -4,7 +4,7 @@ const path = require('path');
 
 module.exports = {
   // Use our tiny connector in the site folder as the entry point
-  entry: './site/data.js',
+  entry: ['./site/data.js', './site/app.js'],
   
   output: {
     path: path.resolve(__dirname, 'dist'), // Output the bundle to ./dist/
