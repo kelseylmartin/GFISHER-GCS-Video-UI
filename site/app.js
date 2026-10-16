@@ -237,11 +237,23 @@ window.openVideoModal = function(urls) {
     multiVideoGrid.innerHTML = ''; 
     
     let cols = 'grid-cols-1';
-    if (urls.length === 2) cols = 'grid-cols-2';
-    else if (urls.length > 2 && urls.length <= 4) cols = 'grid-cols-2';
-    else if (urls.length > 4) cols = 'grid-cols-3';
+    let rows = 'grid-rows-1';
+    
+    if (urls.length === 2) {
+        cols = 'grid-cols-2';
+        rows = 'grid-rows-1';
+    } else if (urls.length === 3 || urls.length === 4) {
+        cols = 'grid-cols-2';
+        rows = 'grid-rows-2'; // Forces the rows to share the screen height perfectly
+    } else if (urls.length > 4 && urls.length <= 6) {
+        cols = 'grid-cols-3';
+        rows = 'grid-rows-2';
+    } else if (urls.length > 6) {
+        cols = 'grid-cols-3';
+        rows = 'grid-rows-3';
+    }
 
-    multiVideoGrid.className = `w-full h-full origin-top-left transition-transform duration-100 ease-out grid ${cols} gap-1 p-1`;
+    multiVideoGrid.className = `w-full h-full origin-top-left transition-transform duration-100 ease-out grid ${cols} ${rows} gap-1 p-1`;
 
     urls.forEach(url => {
         const vid = document.createElement('video');
