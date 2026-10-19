@@ -303,13 +303,31 @@ window.openVideoModal = function(urls) {
 
     multiVideoGrid.className = `w-full h-full origin-top-left transition-transform duration-100 ease-out grid ${cols} ${rows} gap-1 p-1`;
 
-    urls.forEach(url => {
+urls.forEach(url => {
+        // Find the matching video object in our data to get the exact filename
+        const videoObj = allVideos.find(v => v.url === url);
+        const filename = videoObj ? videoObj.filename : decodeURIComponent(url.split('/').pop());
+
+        // Create a wrapper to hold both the video and the label
+        const wrapper = document.createElement('div');
+        wrapper.className = 'relative w-full h-full bg-black rounded-lg border border-slate-800 overflow-hidden';
+
+        // Create the video player
         const vid = document.createElement('video');
         vid.src = url;
         vid.controls = true;
         vid.muted = true; 
-        vid.className = 'w-full h-full object-contain bg-black marine-video border border-slate-800 rounded-lg';
-        multiVideoGrid.appendChild(vid);
+        vid.className = 'w-full h-full object-contain marine-video';
+        
+        // Create the floating filename label
+        const label = document.createElement('div');
+        label.className = 'absolute top-2 left-2 bg-black/70 text-white text-xs px-2.5 py-1 rounded pointer-events-none z-10 font-mono shadow-sm backdrop-blur-sm truncate max-w-[90%]';
+        label.textContent = filename;
+
+        // Add them to the grid
+        wrapper.appendChild(vid);
+        wrapper.appendChild(label);
+        multiVideoGrid.appendChild(wrapper);
     });
 
     videoModal.classList.remove('hidden');
