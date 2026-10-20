@@ -464,28 +464,36 @@ document.addEventListener('keydown', (e) => {
     // Only allow shortcuts if the video modal is currently open
     if (videoModal.classList.contains('hidden')) return;
 
+    // FIX 1: Ignore the OS auto-repeat feature so it only triggers once per physical press
+    if (e.repeat) return;
+
     // Do not trigger shortcuts if the user is focused on a slider or search box
     if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
 
     const allVids = document.querySelectorAll('.marine-video');
     if (allVids.length === 0) return;
 
-    // Assuming a standard 30 FPS video (1 second / 30 frames)
-    const frameStep = 1 / 30; 
+    const frameStep = 1 / 5; 
 
     if (e.code === 'Space') {
         e.preventDefault(); // Prevents the browser from scrolling down
+        
+        // FIX 2: If a user clicked a video, remove focus so the native player doesn't double-trigger
+        if (document.activeElement.tagName === 'VIDEO') {
+            document.activeElement.blur();
+        }
+        
         globalPlayPause();
     } 
     else if (e.code === 'ArrowRight') {
-        e.preventDefault(); // Prevents the browser from scrolling right
+        e.preventDefault(); 
         if (globalPlaying) globalPlayPause(); // Auto-pause to allow careful inspection
         allVids.forEach(vid => {
             vid.currentTime = Math.min(vid.duration, vid.currentTime + frameStep);
         });
     } 
     else if (e.code === 'ArrowLeft') {
-        e.preventDefault(); // Prevents the browser from scrolling left
+        e.preventDefault(); 
         if (globalPlaying) globalPlayPause(); // Auto-pause to allow careful inspection
         allVids.forEach(vid => {
             vid.currentTime = Math.max(0, vid.currentTime - frameStep);
